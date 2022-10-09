@@ -15,6 +15,7 @@ public class Boid : MonoBehaviour
     {
         public Vector3 Position;
         public Vector3 Forward;
+        public Vector3 Color;
     }
 
     [Serializable]

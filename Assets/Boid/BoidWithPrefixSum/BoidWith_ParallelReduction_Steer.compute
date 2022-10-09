@@ -6,6 +6,7 @@ struct BoidState
 {
     float3 position;
     float3 forward;
+    float3 color;
 };
 
 RWStructuredBuffer<BoidState> boidBuffer : register(u2);            // エージェントのデータ
@@ -18,6 +19,9 @@ half alignmentWeight;   // 整列しあう比重
 half targetWeight;      // 目的地に向かう比重
 half moveSpeed;         // エージェントの移動速度
 float3 targetPosition;  // 目的地
+
+float3 tapPos;
+bool isTaped;
 
 // 0で割り算するのを避けるnormalize関数
 float3 normalizeSafe(float3 v)
@@ -55,9 +59,16 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
     // 時間と速度を考慮した移動ベクトル
     const float3 nextHeading = normalizeSafe(boidSelf.forward + deltaTime * (normalHeading - boidSelf.forward));
-
+    
+    float3 _tapPos = tapPos;
+    _tapPos.z -= boidSelf.position.z;
+    float3 impact = 1 + float3(0, 0, length(_tapPos - boidSelf.position)) * isTaped;
+    
     // エージェントの位置と向きを計算結果で更新する
-    boidSelf.position = boidSelf.position + (nextHeading * moveSpeed * deltaTime);
-    boidSelf.forward = nextHeading;
+    boidSelf.position = boidSelf.position + (nextHeading * moveSpeed * deltaTime) * (1 - isTaped);
+    boidSelf.forward = nextHeading * impact;
+    boidSelf.color.r = normalize(id % 2);
+    boidSelf.color.g = normalize(id % 3);
+    boidSelf.color.b = normalize(id % 5);
     boidBuffer[boidIndex] = boidSelf;
 }

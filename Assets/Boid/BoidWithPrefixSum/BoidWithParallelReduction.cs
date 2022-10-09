@@ -48,8 +48,9 @@ public class BoidWithParallelReduction : MonoBehaviour
 
     void Update()
     {
+        bool isTapped = Input.GetMouseButtonDown((0));
         UpdateBoids_Aggregate();
-        UpdateBoids_Steer();
+        UpdateBoids_Steer(Camera.main.ScreenToWorldPoint(Input.mousePosition), isTapped);
     }
 
     void InitializeBoids_Aggregate()
@@ -63,6 +64,7 @@ public class BoidWithParallelReduction : MonoBehaviour
         boidSteerComputeShader.SetBuffer(kernelIndex, "boidBuffer", _boidBuffer);
         boidSteerComputeShader.SetBuffer(kernelIndex, "boidPrefixSumBuffer", _boidPrefixSumBuffer);
         boidSteerComputeShader.SetInt("numBoids", _boidCountPoT);
+
     }
 
     void UpdateBoids_Aggregate()
@@ -78,7 +80,7 @@ public class BoidWithParallelReduction : MonoBehaviour
         }
     }
 
-    void UpdateBoids_Steer()
+    void UpdateBoids_Steer(Vector3 tapPos, bool isTapped = false)
     {
         var boidTarget = boidConfig.boidTarget != null
             ? boidConfig.boidTarget.position
@@ -93,5 +95,8 @@ public class BoidWithParallelReduction : MonoBehaviour
         boidSteerComputeShader.SetVector("targetPosition", boidTarget);
         boidSteerComputeShader.GetKernelThreadGroupSizes(kernelIndex, out var x, out var y, out var z);
         boidSteerComputeShader.Dispatch(kernelIndex, (int) (_boidCountPoT / x), 1, 1);
+        
+        boidSteerComputeShader.SetVector("tapPos", tapPos);
+        boidSteerComputeShader.SetBool("isTaped", isTapped);
     }
 }
