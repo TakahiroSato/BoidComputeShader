@@ -10,12 +10,22 @@ using Random = Unity.Mathematics.Random;
 [RequireComponent(typeof(VisualEffect))]
 public class Boid : MonoBehaviour
 {
+    // [VFXType(VFXTypeAttribute.Usage.GraphicsBuffer)]
+    // public struct BoidState
+    // {
+    //     public Vector3 Position;
+    //     public Vector3 Forward;
+    //     public Vector3 Color;
+    // }
+    
     [VFXType(VFXTypeAttribute.Usage.GraphicsBuffer)]
     public struct BoidState
     {
         public Vector3 Position;
         public Vector3 Forward;
         public Vector3 Color;
+        public Vector3 Angle;
+        public float Size;
     }
 
     [Serializable]
@@ -62,10 +72,14 @@ public class Boid : MonoBehaviour
 
     void Update()
     {
-        UpdateBoids();
+        bool isTapped = Input.GetMouseButtonDown((0));
+        Vector3 pos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        //Debug.Log(pos);
+        
+        UpdateBoids(pos);
     }
 
-    void UpdateBoids()
+    void UpdateBoids(Vector3 pos)
     {
         var boidTarget = boidConfig.boidTarget != null
             ? boidConfig.boidTarget.position
@@ -76,23 +90,35 @@ public class Boid : MonoBehaviour
         BoidComputeShader.SetFloat("targetWeight", boidConfig.targetWeight);
         BoidComputeShader.SetFloat("moveSpeed", boidConfig.moveSpeed);
         BoidComputeShader.SetVector("targetPosition", boidTarget);
+        BoidComputeShader.SetVector("pos", pos);
         BoidComputeShader.GetKernelThreadGroupSizes(_kernelIndex, out var x, out var y, out var z);
         BoidComputeShader.Dispatch(_kernelIndex, (int) (boidCount / x), 1, 1);
     }
 
     public static GraphicsBuffer PopulateBoids(int boidCount, float3 boidExtent)
     {
-        var random = new Random(256);
+        //var random = new Random(256);
+        int c = (int)Math.Sqrt(boidCount);
+        //Debug.Log(c);
+        
         var boidArray =
             new NativeArray<BoidState>(boidCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-        for (var i = 0; i < boidArray.Length; i++)
+        
+        Debug.Log(boidArray.Length);
+        for (int i = 0; i < c; i++)
         {
-            boidArray[i] = new BoidState
+            for (int j = 0; j < c; j++)
             {
-                Position = random.NextFloat3(-boidExtent, boidExtent),
-                Forward = math.rotate(random.NextQuaternionRotation(), Vector3.forward),
-            };
+                boidArray[i*c+j] = new BoidState
+                {
+                    Position = new Vector3(0.125f * j, 0.125f * i, 0f),
+                    Forward = new Vector3(0, 0, 30),
+                    Angle = new Vector3(0, 0, 0),
+                    Size = 0.1f,
+                };
+            }
         }
+
         var boidBuffer =
             new GraphicsBuffer(GraphicsBuffer.Target.Structured, boidArray.Length, Marshal.SizeOf<BoidState>());
         boidBuffer.SetData(boidArray);

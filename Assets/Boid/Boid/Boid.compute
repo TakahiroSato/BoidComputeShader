@@ -5,6 +5,9 @@ struct BoidState
 {
     float3 position;
     float3 forward;
+    float3 color;
+    float3 angle;
+    float size;
 };
 
 RWStructuredBuffer<BoidState> boidBuffer; // C#からデータを受け取る
@@ -17,12 +20,14 @@ half targetWeight;
 half moveSpeed;
 float3 targetPosition;
 
+float3 pos;
+
 float3 normalizeSafe(float3 v)
 {
     return length(v) > 0 ? normalize(v) : 0;
 }
 
-[numthreads(8,1,1)]
+[numthreads(32,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     // uint numBoids, stribeBoids;
@@ -30,30 +35,48 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     uint boidIndex = id.x;
     BoidState boidSelf = boidBuffer[boidIndex];
-    float3 cellAlignment, cellSeparation;
-
-    for (uint i = 0; i < numBoids; ++i)
-    {
-        BoidState boidOther = boidBuffer[i];
-        cellAlignment += boidOther.forward;
-        cellSeparation += boidOther.position;
-    }
-
-    const float3 alignmentResult = alignmentWeight *
-        normalizeSafe((cellAlignment / numBoids) - boidSelf.forward);
-
-    const float3 separationResult = separationWeight *
-        normalizeSafe((boidSelf.position / numBoids) - cellSeparation);
-
-    const float3 targetHeading = targetWeight
-        * normalizeSafe(targetPosition - boidSelf.position);
-
-    const float3 normalHeading = normalizeSafe(alignmentResult + separationResult + targetHeading);
-
-    const float3 nextHeading = normalizeSafe(boidSelf.forward + deltaTime * (normalHeading - boidSelf.forward));
-
+    // float3 cellAlignment, cellSeparation;
+    //
+    // for (uint i = 0; i < numBoids; ++i)
+    // {
+    //     BoidState boidOther = boidBuffer[i];
+    //     cellAlignment += boidOther.forward;
+    //     cellSeparation += boidOther.position;
+    // }
+    //
+    // const float3 alignmentResult = alignmentWeight *
+    //     normalizeSafe((cellAlignment / numBoids) - boidSelf.forward);
+    //
+    // const float3 separationResult = separationWeight *
+    //     normalizeSafe((boidSelf.position / numBoids) - cellSeparation);
+    //
+    // const float3 targetHeading = targetWeight
+    //     * normalizeSafe(targetPosition - boidSelf.position);
+    //
+    // const float3 normalHeading = normalizeSafe(alignmentResult + separationResult + targetHeading);
+    //
+    // const float3 nextHeading = normalizeSafe(boidSelf.forward + deltaTime * (normalHeading - boidSelf.forward));
+    
     // Update Boid
-    boidSelf.position = boidSelf.position + (nextHeading * moveSpeed * deltaTime);
-    boidSelf.forward = nextHeading;
+    //boidSelf.position = boidSelf.position;// + (nextHeading * moveSpeed * deltaTime);
+    //boidSelf.forward = nextHeading;
+    
+    boidSelf.color = float3(0.2, 0.2, 0.2);
+
+    float3 _pos = pos;
+    _pos.z = boidSelf.position.z;
+    float dt = (length(boidSelf.position - _pos));
+
+    float factor = 0.8/dt;
+
+    boidSelf.size -= abs(boidSelf.size - 0.1) / 5;
+    boidSelf.angle /= 1.05;
+    
+    boidSelf.color.r += factor;
+    boidSelf.size += factor / 300;
+    boidSelf.angle += factor * 10 * normalize(boidSelf.position - _pos);
+
+    boidSelf.color *= (1 + boidSelf.angle * factor);
+    
     boidBuffer[boidIndex] = boidSelf;
 }

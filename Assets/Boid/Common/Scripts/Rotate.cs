@@ -8,7 +8,7 @@ public class Rotate : MonoBehaviour
 
     void Update()
     {
-        _axis = Vector3.Slerp(Vector3.up, Vector3.forward, Mathf.Sin(Time.time));
-        transform.Rotate(_axis, Time.deltaTime * speed);
+        // _axis = Vector3.Slerp(Vector3.up, Vector3.forward, Mathf.Sin(Time.time));
+        // transform.Rotate(_axis, Time.deltaTime * speed);
     }
 }
