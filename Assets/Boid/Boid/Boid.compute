@@ -3,11 +3,13 @@
 
 struct BoidState
 {
+    float3 orgPosition;
     float3 position;
     float3 forward;
     float3 color;
     float3 angle;
     float size;
+    float rad;
 };
 
 struct AudioState
@@ -41,22 +43,31 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     uint boidIndex = id.x;
     BoidState boidSelf = boidBuffer[boidIndex];
 
-    int i = fftResolution - (boidIndex / (numBoids / fftResolution));
-    AudioState audio = audioBuffer[i];
+    int idx = fftResolution - (boidIndex / (numBoids / fftResolution));
+    AudioState audio = audioBuffer[idx];
 
     float volume;
     for (uint i = 0; i < fftResolution; ++i)
     {
         volume += audioBuffer[i].spectram;
     }
-    
-    // boidSelf.position.y = audio.spectram * (200 + (fftResolution-i));
-    // boidSelf.position.y += (boidIndex % fftResolution) / fftResolution;
 
-    boidSelf.position.y = audio.spectram * ((boidIndex % fftResolution) / 30);
+    int pow = 1 + (boidIndex / fftResolution) * 0.11;
 
-    float3 pos = boidSelf.position;
-    boidSelf.color = float3(pos.x / 500 ,pos.y / 20, i * audio.spectram / fftResolution) * volume / 10;
+    boidSelf.position -= (boidSelf.position - boidSelf.orgPosition) / (pow);
+
+    float3 pos = boidSelf.orgPosition;
+
+    float factor = (audio.spectram * volume);
+
+    double rad = 0;
+    boidSelf.position.x += (pos.x * cos(rad) + pos.y * sin(rad)) * factor;
+    boidSelf.position.y += (pos.x * -1 * sin(rad) + pos.y * cos(rad)) * factor;
+
+    boidSelf.position *= 1 + (volume / 250);
+
+    pos = boidSelf.position;
+    boidSelf.color = float3(pos.x * boidIndex / numBoids, pos.y, audio.spectram * boidIndex / numBoids) * audio.spectram * volume / 10;
 
     boidBuffer[boidIndex] = boidSelf;
 }

@@ -11,22 +11,16 @@ using Random = Unity.Mathematics.Random;
 [RequireComponent(typeof(VisualEffect))]
 public class Boid : MonoBehaviour
 {
-    // [VFXType(VFXTypeAttribute.Usage.GraphicsBuffer)]
-    // public struct BoidState
-    // {
-    //     public Vector3 Position;
-    //     public Vector3 Forward;
-    //     public Vector3 Color;
-    // }
-    
     [VFXType(VFXTypeAttribute.Usage.GraphicsBuffer)]
     public struct BoidState
     {
+        public Vector3 orgPosition;
         public Vector3 Position;
         public Vector3 Forward;
         public Vector3 Color;
         public Vector3 Angle;
         public float Size;
+        public float rad;
     }
 
     public struct AudioState
@@ -51,6 +45,8 @@ public class Boid : MonoBehaviour
 
     [SerializeField] private AudioClipManager _audioClipManager;
 
+    [SerializeField] private float _radius = 5;
+    
     public int boidCount = 32;
 
     public float3 boidExtent = new(32f, 32f, 32f);
@@ -119,29 +115,20 @@ public class Boid : MonoBehaviour
         
         var boidArray =
             new NativeArray<BoidState>(boidCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-        
-        // for (int i = 0; i < c; i++)
-        // {
-        //     for (int j = 0; j < c; j++)
-        //     {
-        //         boidArray[i*c+j] = new BoidState
-        //         {
-        //             Position = new Vector3(0.125f * j, 0.125f * i, 0f),
-        //             Forward = new Vector3(0, 0, 30),
-        //             Angle = new Vector3(0, 0, 0),
-        //             Size = 0.1f,
-        //         };
-        //     }
-        // }
 
         for (int i = 0; i < boidCount; i++)
         {
+            double rad = (i/(boidCount/_audioClipManager.FFT_RESOLUTION)) * Math.PI / 180f;
+            Vector3 pos = new Vector3((float) Math.Cos(rad) * _radius, (float) Math.Sin(rad) * _radius, 0f);
+            //Vector3 pos = new Vector3((float) Math.Cos(rad) * _radius, 0.0125f*i, 0f);
             boidArray[i] = new BoidState
             {
-                Position = new Vector3(0.0125f * i, 0f, 0f),
+                orgPosition = pos,
+                Position = pos,
                 Forward = new Vector3(0, 0, 30),
-                Angle = new Vector3(0, 0, 0),
+                Angle = new Vector3(0, 0, i%360),
                 Size = 0.1f,
+                rad = (float)rad,
             };
         }
 
