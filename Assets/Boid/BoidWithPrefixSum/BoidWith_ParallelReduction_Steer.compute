@@ -7,12 +7,22 @@ struct BoidState
     float3 position;
     float3 forward;
     float3 color;
+    float3 angle;
+    float size;
+};
+
+struct AudioState
+{
+    float spectram;
+    float frequencey;
 };
 
 RWStructuredBuffer<BoidState> boidBuffer : register(u2);            // エージェントのデータ
 RWStructuredBuffer<BoidState> boidPrefixSumBuffer : register(u3);   // エージェント平均値計算用バッファ
+RWStructuredBuffer<AudioState> audioBuffer : register(u4); 
 
 uint numBoids;          // エージェントの数
+uint fftResolution;
 float deltaTime;        // シミュレーションの経過時間
 half separationWeight;  // 近づきすぎないようにする比重
 half alignmentWeight;   // 整列しあう比重
@@ -59,14 +69,14 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
     // 時間と速度を考慮した移動ベクトル
     const float3 nextHeading = normalizeSafe(boidSelf.forward + deltaTime * (normalHeading - boidSelf.forward));
-    
-    float3 _tapPos = tapPos;
-    _tapPos.z -= boidSelf.position.z;
-    float3 impact = 1 + float3(0, 0, length(_tapPos - boidSelf.position)) * isTaped;
+
+
+    int i = fftResolution - (boidIndex / (numBoids / fftResolution));
+    AudioState audio = audioBuffer[i];
     
     // エージェントの位置と向きを計算結果で更新する
-    boidSelf.position = boidSelf.position + (nextHeading * moveSpeed * deltaTime) * (1 - isTaped);
-    boidSelf.forward = nextHeading * impact;
+    boidSelf.position = boidSelf.position + (nextHeading * moveSpeed * deltaTime);
+    boidSelf.forward = nextHeading;
     boidSelf.color.r = normalize(id % 2);
     boidSelf.color.g = normalize(id % 3);
     boidSelf.color.b = normalize(id % 5);

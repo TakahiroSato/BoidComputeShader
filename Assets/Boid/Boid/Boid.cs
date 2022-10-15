@@ -111,40 +111,20 @@ public class Boid : MonoBehaviour
         BoidComputeShader.Dispatch(_kernelIndex, (int) (boidCount / x), 1, 1);
     }
 
-    public GraphicsBuffer PopulateBoids(int boidCount, float3 boidExtent)
+    public static GraphicsBuffer PopulateBoids(int boidCount, float3 boidExtent)
     {
-        //var random = new Random(256);
-        int c = (int)Math.Sqrt(boidCount);
-        //Debug.Log(c);
-        
+        var random = new Random(256);
         var boidArray =
             new NativeArray<BoidState>(boidCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-        
-        // for (int i = 0; i < c; i++)
-        // {
-        //     for (int j = 0; j < c; j++)
-        //     {
-        //         boidArray[i*c+j] = new BoidState
-        //         {
-        //             Position = new Vector3(0.125f * j, 0.125f * i, 0f),
-        //             Forward = new Vector3(0, 0, 30),
-        //             Angle = new Vector3(0, 0, 0),
-        //             Size = 0.1f,
-        //         };
-        //     }
-        // }
-
-        for (int i = 0; i < boidCount; i++)
+        for (var i = 0; i < boidArray.Length; i++)
         {
             boidArray[i] = new BoidState
             {
-                Position = new Vector3(0.0125f * i, 0f, 0f),
-                Forward = new Vector3(0, 0, 30),
-                Angle = new Vector3(0, 0, 0),
-                Size = 0.1f,
+                Position = random.NextFloat3(-boidExtent, boidExtent),
+                Forward = math.rotate(random.NextQuaternionRotation(), Vector3.forward),
+                Size = 0.05f,
             };
         }
-
         var boidBuffer =
             new GraphicsBuffer(GraphicsBuffer.Target.Structured, boidArray.Length, Marshal.SizeOf<BoidState>());
         boidBuffer.SetData(boidArray);

@@ -8,6 +8,8 @@ struct BoidState
     float3 position;
     float3 forward;
     float3 color;
+    float3 angle;
+    float size;
 };
 
 StructuredBuffer<BoidState> boidBuffer : register(t1);

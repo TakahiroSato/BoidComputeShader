@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using Audio;
+using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.VFX;
@@ -6,6 +8,8 @@ using UnityEngine.VFX;
 [RequireComponent(typeof(VisualEffect))]
 public class BoidWithParallelReduction : MonoBehaviour
 {
+    [SerializeField] private AudioClipManager _audioClipManager;
+    
     public int boidCount = 32;
 
     public float3 boidExtent = new(32f, 32f, 32f);
@@ -21,22 +25,24 @@ public class BoidWithParallelReduction : MonoBehaviour
     int _boidCountPoT;
     GraphicsBuffer _boidBuffer;
     GraphicsBuffer _boidPrefixSumBuffer;
+    private GraphicsBuffer _audioBuffer;
 
     void OnEnable()
     {
-        // _boidCountPoT = math.ceilpow2(boidCount);
-        // _boidBuffer = Boid.PopulateBoids(_boidCountPoT, boidExtent);
-        // _boidPrefixSumBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _boidCountPoT,
-        //     Marshal.SizeOf<Boid.BoidState>());
-        //
-        // InitializeBoids_Aggregate();
-        //
-        // InitializeBoids_Steer();
-        //
-        // _boidVisualEffect = GetComponent<VisualEffect>();
-        // _boidVisualEffect.SetGraphicsBuffer("Boids", _boidBuffer);
-        // _boidVisualEffect.SetUInt("BoidCount", (uint) _boidCountPoT);
-        // _boidVisualEffect.enabled = true;
+        _boidCountPoT = math.ceilpow2(boidCount);
+        _boidBuffer = Boid.PopulateBoids(_boidCountPoT, boidExtent);
+        _boidPrefixSumBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _boidCountPoT,
+            Marshal.SizeOf<Boid.BoidState>());
+        _audioBuffer = PopulateAudioData();
+        
+        InitializeBoids_Aggregate();
+        
+        InitializeBoids_Steer();
+        
+        _boidVisualEffect = GetComponent<VisualEffect>();
+        _boidVisualEffect.SetGraphicsBuffer("Boids", _boidBuffer);
+        _boidVisualEffect.SetUInt("BoidCount", (uint) _boidCountPoT);
+        _boidVisualEffect.enabled = true;
     }
 
     void OnDisable()
@@ -44,6 +50,7 @@ public class BoidWithParallelReduction : MonoBehaviour
         _boidVisualEffect.enabled = false;
         _boidBuffer?.Dispose();
         _boidPrefixSumBuffer?.Dispose();
+        _audioBuffer?.Dispose();
     }
 
     void Update()
@@ -51,6 +58,7 @@ public class BoidWithParallelReduction : MonoBehaviour
         bool isTapped = Input.GetMouseButtonDown((0));
         UpdateBoids_Aggregate();
         UpdateBoids_Steer(Camera.main.ScreenToWorldPoint(Input.mousePosition), isTapped);
+        UpdateAudioBuffer();
     }
 
     void InitializeBoids_Aggregate()
@@ -63,8 +71,9 @@ public class BoidWithParallelReduction : MonoBehaviour
         var kernelIndex = boidSteerComputeShader.FindKernel("CSMain");
         boidSteerComputeShader.SetBuffer(kernelIndex, "boidBuffer", _boidBuffer);
         boidSteerComputeShader.SetBuffer(kernelIndex, "boidPrefixSumBuffer", _boidPrefixSumBuffer);
+        boidSteerComputeShader.SetBuffer(kernelIndex, "audioBuffer", _audioBuffer);
         boidSteerComputeShader.SetInt("numBoids", _boidCountPoT);
-
+        boidSteerComputeShader.SetInt("fftResolution", _audioClipManager.FFT_RESOLUTION);
     }
 
     void UpdateBoids_Aggregate()
@@ -98,5 +107,21 @@ public class BoidWithParallelReduction : MonoBehaviour
         
         boidSteerComputeShader.SetVector("tapPos", tapPos);
         boidSteerComputeShader.SetBool("isTaped", isTapped);
+    }
+    
+    public GraphicsBuffer PopulateAudioData()
+    {
+        var arr = new NativeArray<Boid.AudioState>(_audioClipManager.FFT_RESOLUTION, Allocator.Temp,
+            NativeArrayOptions.ClearMemory);
+
+        var spectramBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _audioClipManager.FFT_RESOLUTION, Marshal.SizeOf<Boid.AudioState>());
+        spectramBuffer.SetData(arr);
+        arr.Dispose();
+        return spectramBuffer;
+    }
+    
+    public void UpdateAudioBuffer()
+    {
+        _audioBuffer.SetData(_audioClipManager.GetAudioStateData());
     }
 }
