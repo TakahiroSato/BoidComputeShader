@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Audio;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -28,6 +29,12 @@ public class Boid : MonoBehaviour
         public float Size;
     }
 
+    public struct AudioState
+    {
+        public float spectram;
+        public int frequency;
+    }
+
     [Serializable]
     public class BoidConfig
     {
@@ -42,6 +49,8 @@ public class Boid : MonoBehaviour
         public Transform boidTarget;
     }
 
+    [SerializeField] private AudioClipManager _audioClipManager;
+
     public int boidCount = 32;
 
     public float3 boidExtent = new(32f, 32f, 32f);
@@ -52,14 +61,19 @@ public class Boid : MonoBehaviour
 
     VisualEffect _boidVisualEffect;
     GraphicsBuffer _boidBuffer;
+    private GraphicsBuffer _audioBuffer;
     int _kernelIndex;
 
     void OnEnable()
     {
         _boidBuffer = PopulateBoids(boidCount, boidExtent);
+        _audioBuffer = PopulateAudioData();
         _kernelIndex = BoidComputeShader.FindKernel("CSMain");
         BoidComputeShader.SetBuffer(_kernelIndex, "boidBuffer", _boidBuffer);
+        BoidComputeShader.SetBuffer(_kernelIndex, "audioBuffer", _audioBuffer);
+        
         BoidComputeShader.SetInt("numBoids", boidCount);
+        BoidComputeShader.SetInt("fftResolution", _audioClipManager.FFT_RESOLUTION);
 
         _boidVisualEffect = GetComponent<VisualEffect>();
         _boidVisualEffect.SetGraphicsBuffer("Boids", _boidBuffer);
@@ -68,6 +82,7 @@ public class Boid : MonoBehaviour
     void OnDisable()
     {
         _boidBuffer?.Dispose();
+        _audioBuffer?.Dispose();
     }
 
     void Update()
@@ -76,6 +91,7 @@ public class Boid : MonoBehaviour
         Vector3 pos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         //Debug.Log(pos);
         
+        UpdateAudioBuffer();
         UpdateBoids(pos);
     }
 
@@ -90,12 +106,12 @@ public class Boid : MonoBehaviour
         BoidComputeShader.SetFloat("targetWeight", boidConfig.targetWeight);
         BoidComputeShader.SetFloat("moveSpeed", boidConfig.moveSpeed);
         BoidComputeShader.SetVector("targetPosition", boidTarget);
-        BoidComputeShader.SetVector("pos", pos);
+        //BoidComputeShader.SetVector("pos", pos);
         BoidComputeShader.GetKernelThreadGroupSizes(_kernelIndex, out var x, out var y, out var z);
         BoidComputeShader.Dispatch(_kernelIndex, (int) (boidCount / x), 1, 1);
     }
 
-    public static GraphicsBuffer PopulateBoids(int boidCount, float3 boidExtent)
+    public GraphicsBuffer PopulateBoids(int boidCount, float3 boidExtent)
     {
         //var random = new Random(256);
         int c = (int)Math.Sqrt(boidCount);
@@ -104,19 +120,29 @@ public class Boid : MonoBehaviour
         var boidArray =
             new NativeArray<BoidState>(boidCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
         
-        Debug.Log(boidArray.Length);
-        for (int i = 0; i < c; i++)
+        // for (int i = 0; i < c; i++)
+        // {
+        //     for (int j = 0; j < c; j++)
+        //     {
+        //         boidArray[i*c+j] = new BoidState
+        //         {
+        //             Position = new Vector3(0.125f * j, 0.125f * i, 0f),
+        //             Forward = new Vector3(0, 0, 30),
+        //             Angle = new Vector3(0, 0, 0),
+        //             Size = 0.1f,
+        //         };
+        //     }
+        // }
+
+        for (int i = 0; i < boidCount; i++)
         {
-            for (int j = 0; j < c; j++)
+            boidArray[i] = new BoidState
             {
-                boidArray[i*c+j] = new BoidState
-                {
-                    Position = new Vector3(0.125f * j, 0.125f * i, 0f),
-                    Forward = new Vector3(0, 0, 30),
-                    Angle = new Vector3(0, 0, 0),
-                    Size = 0.1f,
-                };
-            }
+                Position = new Vector3(0.0125f * i, 0f, 0f),
+                Forward = new Vector3(0, 0, 30),
+                Angle = new Vector3(0, 0, 0),
+                Size = 0.1f,
+            };
         }
 
         var boidBuffer =
@@ -124,5 +150,21 @@ public class Boid : MonoBehaviour
         boidBuffer.SetData(boidArray);
         boidArray.Dispose();
         return boidBuffer;
+    }
+
+    public GraphicsBuffer PopulateAudioData()
+    {
+        var arr = new NativeArray<AudioState>(_audioClipManager.FFT_RESOLUTION, Allocator.Temp,
+            NativeArrayOptions.ClearMemory);
+
+        var spectramBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _audioClipManager.FFT_RESOLUTION, Marshal.SizeOf<AudioState>());
+        spectramBuffer.SetData(arr);
+        arr.Dispose();
+        return spectramBuffer;
+    }
+
+    public void UpdateAudioBuffer()
+    {
+        _audioBuffer.SetData(_audioClipManager.GetAudioStateData());
     }
 }

@@ -24,19 +24,19 @@ public class BoidWithParallelReduction : MonoBehaviour
 
     void OnEnable()
     {
-        _boidCountPoT = math.ceilpow2(boidCount);
-        _boidBuffer = Boid.PopulateBoids(_boidCountPoT, boidExtent);
-        _boidPrefixSumBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _boidCountPoT,
-            Marshal.SizeOf<Boid.BoidState>());
-
-        InitializeBoids_Aggregate();
-
-        InitializeBoids_Steer();
-
-        _boidVisualEffect = GetComponent<VisualEffect>();
-        _boidVisualEffect.SetGraphicsBuffer("Boids", _boidBuffer);
-        _boidVisualEffect.SetUInt("BoidCount", (uint) _boidCountPoT);
-        _boidVisualEffect.enabled = true;
+        // _boidCountPoT = math.ceilpow2(boidCount);
+        // _boidBuffer = Boid.PopulateBoids(_boidCountPoT, boidExtent);
+        // _boidPrefixSumBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, _boidCountPoT,
+        //     Marshal.SizeOf<Boid.BoidState>());
+        //
+        // InitializeBoids_Aggregate();
+        //
+        // InitializeBoids_Steer();
+        //
+        // _boidVisualEffect = GetComponent<VisualEffect>();
+        // _boidVisualEffect.SetGraphicsBuffer("Boids", _boidBuffer);
+        // _boidVisualEffect.SetUInt("BoidCount", (uint) _boidCountPoT);
+        // _boidVisualEffect.enabled = true;
     }
 
     void OnDisable()

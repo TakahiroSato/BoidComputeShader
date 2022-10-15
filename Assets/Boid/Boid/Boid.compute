@@ -10,9 +10,17 @@ struct BoidState
     float size;
 };
 
+struct AudioState
+{
+    float spectram;
+    float frequencey;
+};
+
 RWStructuredBuffer<BoidState> boidBuffer; // C#からデータを受け取る
+RWStructuredBuffer<AudioState> audioBuffer;
 
 uint numBoids;
+uint fftResolution;
 float deltaTime;
 half separationWeight;
 half alignmentWeight;
@@ -28,55 +36,27 @@ float3 normalizeSafe(float3 v)
 }
 
 [numthreads(32,1,1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+void CSMain(uint3 id : SV_DispatchThreadID)
 {
-    // uint numBoids, stribeBoids;
-    // boidBuffer.GetDimensions(numBoids, stribeBoids);
-
     uint boidIndex = id.x;
     BoidState boidSelf = boidBuffer[boidIndex];
-    // float3 cellAlignment, cellSeparation;
-    //
-    // for (uint i = 0; i < numBoids; ++i)
-    // {
-    //     BoidState boidOther = boidBuffer[i];
-    //     cellAlignment += boidOther.forward;
-    //     cellSeparation += boidOther.position;
-    // }
-    //
-    // const float3 alignmentResult = alignmentWeight *
-    //     normalizeSafe((cellAlignment / numBoids) - boidSelf.forward);
-    //
-    // const float3 separationResult = separationWeight *
-    //     normalizeSafe((boidSelf.position / numBoids) - cellSeparation);
-    //
-    // const float3 targetHeading = targetWeight
-    //     * normalizeSafe(targetPosition - boidSelf.position);
-    //
-    // const float3 normalHeading = normalizeSafe(alignmentResult + separationResult + targetHeading);
-    //
-    // const float3 nextHeading = normalizeSafe(boidSelf.forward + deltaTime * (normalHeading - boidSelf.forward));
-    
-    // Update Boid
-    //boidSelf.position = boidSelf.position;// + (nextHeading * moveSpeed * deltaTime);
-    //boidSelf.forward = nextHeading;
-    
-    boidSelf.color = float3(0.2, 0.2, 0.2);
 
-    float3 _pos = pos;
-    _pos.z = boidSelf.position.z;
-    float dt = (length(boidSelf.position - _pos));
+    int i = fftResolution - (boidIndex / (numBoids / fftResolution));
+    AudioState audio = audioBuffer[i];
 
-    float factor = 0.8/dt;
-
-    boidSelf.size -= abs(boidSelf.size - 0.1) / 5;
-    boidSelf.angle /= 1.05;
+    float volume;
+    for (uint i = 0; i < fftResolution; ++i)
+    {
+        volume += audioBuffer[i].spectram;
+    }
     
-    boidSelf.color.r += factor;
-    boidSelf.size += factor / 300;
-    boidSelf.angle += factor * 10 * normalize(boidSelf.position - _pos);
+    // boidSelf.position.y = audio.spectram * (200 + (fftResolution-i));
+    // boidSelf.position.y += (boidIndex % fftResolution) / fftResolution;
 
-    boidSelf.color *= (1 + boidSelf.angle * factor);
-    
+    boidSelf.position.y = audio.spectram * ((boidIndex % fftResolution) / 30);
+
+    float3 pos = boidSelf.position;
+    boidSelf.color = float3(pos.x / 500 ,pos.y / 20, i * audio.spectram / fftResolution) * volume / 10;
+
     boidBuffer[boidIndex] = boidSelf;
 }
